@@ -3,7 +3,8 @@ require("binaryreader")
 mapping = require("ldf_unpacker/se84_mapping")
 calib = require("ldf_unpacker/se84_calibration")
 
-ch_cal, det_cal = calib.readcal()
+require("ldf_unpacker/ornldaq_signals")
+require("ldf_unpacker/ornldaq_monitors")
 
 local ldfEventCounter = 0
 
@@ -206,13 +207,15 @@ function DumpNextRecord(raw_dump)
   end
 end
 
-require("ldf_unpacker/ornldaq_signals")
-require("ldf_unpacker/ornldaq_monitors")
-
 function StartMonitoring(input, raw_dump, replay)
   MakeSyncSafe()
 
   OpenInputFile(type(input) == "table" and input[1] or input)
+
+  AddSignal("display", function(hname, opts)
+      if haliases[hname] then haliases[hname].hist:Draw(opts)
+      elseif orruba_monitors[hname] then orruba_monitors[hname].hist:Draw(opts) end
+    end)
 
   SetupStandardMonitors()
 
@@ -256,6 +259,11 @@ function StartMonitoring(input, raw_dump, replay)
               h.fillfn(h.hist, ev)
             end
           end
+        end
+
+        if i%100 == 0 then
+          CheckSignals()
+          theApp:Update()
         end
       end
 
