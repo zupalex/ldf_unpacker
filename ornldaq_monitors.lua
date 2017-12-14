@@ -4,6 +4,9 @@ orruba_monitors = {}
 haliases = {}
 
 local mapping = require("ldf_unpacker/se84_mapping")
+local calib = require("ldf_unpacker/se84_calibration")
+
+local ch_cal, det_cal = calib.readcal()
 
 function AddMonitor(alias, hparams, fillfn)
   if type(alias) == "table" then
@@ -28,11 +31,79 @@ end
 
 ----------------------- Fill Functions ---------------------------
 
+local function PrepareSX3Computation(detector, strip, useback)
+  local pIter = detector:gmatch("%a+%d*")
+
+  local det_type, det_id = pIter(), pIter()
+
+  local order = mapping.det_prop[det_type].front.order
+
+  local order_index = 2*(strip-1)+1
+
+  local strip_right = order[order_index]
+  local strip_left = order[order_index+1]
+
+  local detKey1, detKey2 = detector.." f"..tostring(strip_right), detector.." f"..tostring(strip_left)
+  local ch_right, ch_left = mapping.getchannel(detKey1), mapping.getchannel(detKey2)
+
+  local GetEn
+
+  if orruba_applycal and det_cal[detKey1] and det_cal[detKey2] then
+    GetEn = function(ev)
+      return ev[ch_right] and det_cal[detKey1]:calibrate(ev[ch_right], ev) or ev[ch_right], ev[ch_left] and det_cal[detKey2]:calibrate(ev[ch_left], ev) or ev[ch_left]
+    end
+  else
+    GetEn = function(ev)
+      return ev[ch_right], ev[ch_left]
+    end
+  end
+
+  local GetEnSum
+
+  if not useback then
+    GetEnSum = function(ev)
+      local en_right, en_left = GetEn(ev)
+      local en_sum = en_right+en_left
+      return en_sum, en_sum
+    end
+  else
+    local backStrips = mapping.getchannels(detector, "b")
+    GetEnSum = function(ev)
+      local maxBack = 0
+      for _, s in ipairs(backStrips) do
+        local en_ = ev[s]
+        if en_ and en_ > maxBack then
+          maxBack = orruba_applycal and ch_cal[s] and ch_cal[s]:calibrate(en_, ev) or en_
+        end
+      end
+
+      local en_right, en_left = GetEn(ev)
+      local en_sum = en_right+en_left
+
+      return en_sum, maxBack
+    end
+  end
+
+  local GetEnDiff = function(ev)
+    return ev[ch_left] - ev[ch_right]
+  end
+
+  return ch_left, ch_right, GetEnSum, GetEnDiff
+end
+
+proton_in_orruba = false
+
 local fillfns = {
   FillChVsValue = function(hist, ev)
     for k, v in pairs(ev) do
-      local en = (orruba_applycal and ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev)) or v
-      hist:Fill(k, en)
+      local en = orruba_applycal and (ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev) or nil) or v
+      if en then
+        hist:Fill(k, en)
+
+        if orruba_applycal and en > 4 and ((k >= 101 and k < 199) or (k >= 301 and k < 399 ))then
+          proton_in_orruba = true
+        end
+      end
     end
   end,
 
@@ -76,19 +147,7 @@ local fillfns = {
   end,
 
   FillSX3LeftVsRight = function(detector, strip)
-    local order = mapping.det_prop.SuperX3.front.order
-
-    local order_index = 2*(strip-1)+1
-
-    local strip_right = order[order_index]
-    local strip_left = order[order_index+1]
-
-    local detKey1, detKey2 = detector.." f"..tostring(strip_right), detector.." f"..tostring(strip_left)
-    local ch1, ch2 = mapping.getchannel(detKey1), mapping.getchannel(detKey2)
-
-    local cal_right, cal_left = det_cal[detKey1], det_cal[detKey2]
-
-    local GetEn
+    local ch1, ch2 = PrepareSX3Computation(detector, strip)
 
     if orruba_applycal and det_cal[detKey1] and det_cal[detKey2] then
       GetEn = function(ev)
@@ -110,60 +169,25 @@ local fillfns = {
   end,
 
   FillSX3RelativePosition = function(detector, strip, useback)
-    local order = mapping.det_prop.SuperX3.front.order
-
-    local order_index = 2*(strip-1)+1
-
-    local strip_right = order[order_index]
-    local strip_left = order[order_index+1]
-
-    local detKey1, detKey2 = detector.." f"..tostring(strip_right), detector.." f"..tostring(strip_left)
-    local ch_right, ch_left = mapping.getchannel(detKey1), mapping.getchannel(detKey2)
-
-    local GetEn
-
-    if orruba_applycal and det_cal[detKey1] and det_cal[detKey2] then
-      GetEn = function(ev)
-        return ev[ch_right] and det_cal[detKey1]:calibrate(ev[ch_right], ev) or ev[ch_right], ev[ch_left] and det_cal[detKey2]:calibrate(ev[ch_left], ev) or ev[ch_left]
-      end
-    else
-      GetEn = function(ev)
-        return ev[ch_right], ev[ch_left]
-      end
-    end
-
-    local GetEnSum
-
-    if not useback then
-      GetEnSum = function(ev)
-        local en_right, en_left = GetEn(ev)
-        local en_sum = en_right+en_left
-        return en_sum, en_sum
-      end
-    else
-      local backStrips = mapping.getchannels(detector, "b")
-      GetEnSum = function(ev)
-        local maxBack = 0
-        for _, s in ipairs(backStrips) do
-          local en_ = ev[s]
-          if en_ and en_ > maxBack then
-            maxBack = orruba_applycal and ch_cal[s] and ch_cal[s]:calibrate(en_, ev) or en_
-          end
-        end
-
-        local en_right, en_left = GetEn(ev)
-        local en_sum = en_right+en_left
-
-        return en_sum, maxBack
-      end
-    end
+    local ch_left, ch_right, GetEnSum, GetEnDiff = PrepareSX3Computation(detector, strip, useback)
 
     return function(hist, ev)
       if ev[ch_left] and ev[ch_right] then
         local en_sum1, ensum2 = GetEnSum(ev)
+        local en_diff = GetEnDiff(ev)
 
-        local en_right, en_left = GetEn(ev)
-        local en_diff = en_left-en_right
+        hist:Fill(en_diff/en_sum1)
+      end
+    end
+  end,
+
+  FillSX3EnergyVsPosition = function(detector, strip, useback)
+    local ch_left, ch_right, GetEnSum, GetEnDiff = PrepareSX3Computation(detector, strip, useback)
+
+    return function(hist, ev)
+      if ev[ch_left] and ev[ch_right] then
+        local en_sum1, ensum2 = GetEnSum(ev)
+        local en_diff = GetEnDiff(ev)
 
         hist:Fill(en_diff/en_sum1, ensum2)
       end

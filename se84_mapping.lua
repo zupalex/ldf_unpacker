@@ -6,6 +6,8 @@ local detectors_properties = {
   SuperX3 = { front = {strips = 4, connectors = 8, order = {1, 2, 3, 4, 6, 5, 8, 7} }, back = {strips = 4} },
 
   X3 = { front = {strips = 1}},
+
+  Elastics = { front = {strips = 4, connectors = 8, order = {1, 2, 3, 4, 6, 5, 8, 7}}, back = {strips = 1} }
 }
 
 local mapping = {
@@ -83,17 +85,27 @@ local mapping = {
     [12] =  { front = 613 },
   },
 
+  Elastics = {
+    BOTTOM_LEFT = { front = 633, back = -1 },
+    BOTTOM_RIGHT = { front = 641, back = -1 },
+    TOP_RIGHT = { front = 649, back = -1 },
+  },
+
   MCP = {
     [1] = { 
       QDC = {TOP_RIGHT = 865, TOP_LEFT = 866, BOTTOM_LEFT = 867, BOTTOM_RIGHT = 868}, 
-      MBD4 = {TOP_RIGHT = 617, TOP_LEFT = 618, BOTTOM_LEFT = 619, BOTTOM_RIGHT = 620}
+      MPD4 = {TOP_RIGHT = 617, TOP_LEFT = 618, BOTTOM_LEFT = 619, BOTTOM_RIGHT = 620}
     },
 
     [2] = { 
       QDC = {TOP_RIGHT = 869, TOP_LEFT = 870, BOTTOM_LEFT = 871, BOTTOM_RIGHT = 872},
-      MBD4 = {TOP_RIGHT = 621, TOP_LEFT = 622, BOTTOM_LEFT = 623, BOTTOM_RIGHT = 624}
+      MPD4 = {TOP_RIGHT = 621, TOP_LEFT = 622, BOTTOM_LEFT = 623, BOTTOM_RIGHT = 624}
     }
   },
+
+  TDC = {
+    E1 = 805, XF = 806, RF = 807, MCP1 = 809, MCP2 = 810,
+  }
 }
 
 local function MakeChannelToDetector()
@@ -101,7 +113,7 @@ local function MakeChannelToDetector()
 
   for k, dets in pairs(mapping) do
     for det, v in pairs(dets) do
-      if v.front then
+      if type(v) == "table" and v.front then
         for i= 1, detectors_properties[k].front.connectors or detectors_properties[k].front.strips do
           local fkey = k.." "..tostring(det).." "..(v.back == nil and "" or "f")..tostring(i)
           local chnum = v.front+i-1
@@ -110,7 +122,7 @@ local function MakeChannelToDetector()
         end
       end
 
-      if v.back then
+      if type(v) == "table" and v.back then
         for i= 1, detectors_properties[k].back.connectors or detectors_properties[k].back.strips do
           local bkey = k.." "..tostring(det).." b"..tostring(i)
           local chnum = v.back+i-1
@@ -127,6 +139,14 @@ local function MakeChannelToDetector()
             det_to_chan[fkey] = chnum
           end
         end
+      end
+    end
+
+    if k == "TDC" then
+      for det, ch in pairs(dets) do
+        local fkey = k.." "..tostring(det)
+        chan_to_det[ch] = fkey
+        det_to_chan[fkey] = ch
       end
     end
   end

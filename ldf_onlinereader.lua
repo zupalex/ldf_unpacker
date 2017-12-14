@@ -3,7 +3,8 @@ require("binaryreader")
 mapping = require("ldf_unpacker/se84_mapping")
 calib = require("ldf_unpacker/se84_calibration")
 
-ch_cal, det_cal = calib.readcal()
+require("ldf_unpacker/ornldaq_signals")
+require("ldf_unpacker/ornldaq_monitors")
 
 local ldfEventCounter = 0
 
@@ -205,9 +206,6 @@ function DumpNextRecord(raw_dump)
     end
   end
 end
-
-require("ldf_unpacker/ornldaq_signals")
-require("ldf_unpacker/ornldaq_monitors")
 
 function StartMonitoring(input, raw_dump, replay)
   MakeSyncSafe()
