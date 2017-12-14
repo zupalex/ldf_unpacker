@@ -83,7 +83,7 @@ local detectors = {
 --  {type = "SIDAR", id = "dE3" },
 --  {type = "SIDAR", id = "dE4" },
 --  {type = "SIDAR", id = "dE5" },
---  {type = "SIDAR", id = "dE6" },
+  {type = "SIDAR", id = "dE6" },
 
 --  {type = "SIDAR", id = "E1" },
 --  {type = "SIDAR", id = "E2" },
@@ -92,31 +92,18 @@ local detectors = {
 --  {type = "SIDAR", id = "E5" },
 --  {type = "SIDAR", id = "E6" },
 
---  {type = "BB10", id = "U1" },
---  {type = "BB10", id = "U2" },
---  {type = "BB10", id = "U3" },
---  {type = "BB10", id = "U4" },
---  {type = "BB10", id = "U5" },
---  {type = "BB10", id = "U6" },
---  {type = "BB10", id = "U7" },
---  {type = "BB10", id = "U8" },
---  {type = "BB10", id = "U9" },
---  {type = "BB10", id = "U10"},
---  {type = "BB10", id = "U11"},
---  {type = "BB10", id = "U12"},
-
---  {type = "BB10", id = "D1" },
---  {type = "BB10", id = "D2" },
---  {type = "BB10", id = "D3" },
---  {type = "BB10", id = "D4" },
---  {type = "BB10", id = "D5" },
---  {type = "BB10", id = "D6" },
---  {type = "BB10", id = "D7" },
---  {type = "BB10", id = "D8" },
---  {type = "BB10", id = "D9" },
---  {type = "BB10", id = "D10"},
---  {type = "BB10", id = "D11"},
---  {type = "BB10", id = "D12"},
+--  {type = "BB10", id = "1" },
+--  {type = "BB10", id = "2" },
+--  {type = "BB10", id = "3" },
+--  {type = "BB10", id = "4" },
+--  {type = "BB10", id = "5" },
+--  {type = "BB10", id = "6" },
+--  {type = "BB10", id = "7" },
+--  {type = "BB10", id = "8" },
+--  {type = "BB10", id = "9" },
+--  {type = "BB10", id = "10"},
+--  {type = "BB10", id = "11"},
+--  {type = "BB10", id = "12"},
 
 --  {type = "X3", id = "1" },
 --  {type = "X3", id = "2" },
@@ -147,35 +134,17 @@ local function GetMaxPeak(amps)
 end
 
 local function RemoveUselessPeaks(peaks)
-  local maxpos = GetMaxPeak(peaks.y)
-
-  for i, v in ipairs(peaks.x) do
-    if v < peaks.x[maxpos] then
-      table.remove(peaks.x, i)
-      table.remove(peaks.y, i)
-      if i < maxpos then maxpos = maxpos-1 end
-    end
-  end
-
   local keepx = newtable()
   local keepy = newtable()
 
-  keepx:insert(peaks.x[maxpos])
-  keepy:insert(peaks.y[maxpos])
-
-  table.remove(peaks.x, maxpos)
-  table.remove(peaks.y, maxpos)
-
-  while #keepx < 3 do
-    maxpos = GetMaxPeak(peaks.y)
+  if #peaks.x > 3 then
+    local maxpos = GetMaxPeak(peaks.y)
 
     for i, v in ipairs(peaks.x) do
-      if i ~= maxpos then
-        if math.abs(v-peaks.x[maxpos]) < 30 then
-          table.remove(peaks.x, i)
-          table.remove(peaks.y, i)
-          if i < maxpos then maxpos = maxpos-1 end
-        end
+      if v < peaks.x[maxpos] then
+        table.remove(peaks.x, i)
+        table.remove(peaks.y, i)
+        if i < maxpos then maxpos = maxpos-1 end
       end
     end
 
@@ -184,6 +153,31 @@ local function RemoveUselessPeaks(peaks)
 
     table.remove(peaks.x, maxpos)
     table.remove(peaks.y, maxpos)
+
+    while #keepx < 3 do
+      maxpos = GetMaxPeak(peaks.y)
+
+      if maxpos == -1 then break end
+
+      for i, v in ipairs(peaks.x) do
+        if i ~= maxpos then
+          if math.abs(v-peaks.x[maxpos]) < 30 then
+            table.remove(peaks.x, i)
+            table.remove(peaks.y, i)
+            if i < maxpos then maxpos = maxpos-1 end
+          end
+        end
+      end
+
+      keepx:insert(peaks.x[maxpos])
+      keepy:insert(peaks.y[maxpos])
+
+      table.remove(peaks.x, maxpos)
+      table.remove(peaks.y, maxpos)
+    end
+  else
+    keepx = peaks.x
+    keepy = peaks.y
   end
 
   return keepx, keepy
@@ -212,7 +206,7 @@ local function DoPeakSearchAndFit(spec, hist, det_type, det_id, stripnum, npeaks
   if hist:Integral() > 100 then
     hist:SetRangeUserX(400, 5000)
     hist:Draw()
-    spec:Search(hist:GetName(), 1, "", 0.02)
+    spec:Search(hist:GetName(), 4, "", 0.02)
 
     local np = spec:GetNPeaks()
     local xpos = spec:GetPositionX()
@@ -279,10 +273,10 @@ function DrawGraphAndFit(peaks, graph, fitfunc)
   return fitRes
 end
 
-function CalibrateStandardStrips(input)
+function CalibrateStandardStrips(input, savetoroot)
   local root_source = false
 
-  local runname
+  local runname, rootfile
 
   if input:find(".root") then
     root_source = true
@@ -295,12 +289,14 @@ function CalibrateStandardStrips(input)
 
   local spec=TSpectrum(10)
 
+  if not root_source and savetoroot then
+    rootfile = TFile("cal_hists_"..runname..".root", "update")
+  end
+
   if not root_source then
     StartMonitoring(input, nil, true)
 
     local ch_vs_en=GetObject("TH2D", "h_monitor")
-
-    local hist_file = TFile("cal_hists_"..runname..".root", "update")
 
     for i, det in ipairs(detectors) do
       for j, ch in ipairs(mapping.getchannels(det.type.." "..det.id, det.side)) do
@@ -314,7 +310,10 @@ function CalibrateStandardStrips(input)
       end
     end
 
-    hist_file:Overwrite()
+    if not root_source and savetoroot then
+      rootfile:Overwrite()
+      return
+    end
   else
     local input_root = TFile(input, "read")
 
@@ -339,6 +338,8 @@ function CalibrateStandardStrips(input)
 
     v:Draw()
     theApp:Update()
+
+    v:Rebin(4)
 
     peaks_pos[v.det_type.." "..v.id][v.stripnum] = DoPeakSearchAndFit(spec, v, v.det_type, v.id, v.stripnum, 6)
   end
