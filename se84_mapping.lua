@@ -117,8 +117,8 @@ local function MakeChannelToDetector()
         for i= 1, detectors_properties[k].front.connectors or detectors_properties[k].front.strips do
           local fkey = k.." "..tostring(det).." "..(v.back == nil and "" or "f")..tostring(i)
           local chnum = v.front+i-1
-          chan_to_det[chnum] = fkey
-          det_to_chan[fkey] = chnum
+          chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, stripnum = i}
+          det_to_chan[fkey] = {channel = chnum, detid = det, dettype = k, stripnum = i}
         end
       end
 
@@ -126,8 +126,8 @@ local function MakeChannelToDetector()
         for i= 1, detectors_properties[k].back.connectors or detectors_properties[k].back.strips do
           local bkey = k.." "..tostring(det).." b"..tostring(i)
           local chnum = v.back+i-1
-          chan_to_det[chnum] = bkey
-          det_to_chan[bkey] = chnum
+          chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, stripnum = i}
+          det_to_chan[bkey] = {channel = chnum, detid = det, dettype = k, stripnum = i}
         end
       end
 
@@ -135,8 +135,8 @@ local function MakeChannelToDetector()
         for mod, chs in pairs(v) do
           for attr, chnum in pairs(chs) do
             local fkey = k.." "..tostring(det).." "..tostring(mod).. " "..tostring(attr)
-            chan_to_det[chnum] = fkey
-            det_to_chan[fkey] = chnum
+            chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, detmod = mod, stripnum = attr}
+            det_to_chan[fkey] = {channel = chnum, detid = det, dettype = k, detmod = mod, stripnum = i}
           end
         end
       end
@@ -145,8 +145,8 @@ local function MakeChannelToDetector()
     if k == "TDC" then
       for det, ch in pairs(dets) do
         local fkey = k.." "..tostring(det)
-        chan_to_det[ch] = fkey
-        det_to_chan[fkey] = ch
+        chan_to_det[ch] = {stripid = fkey, detid = det, dettype = k}
+        det_to_chan[fkey] = {channel = ch, detid = det, dettype = k}
       end
     end
   end
@@ -154,10 +154,10 @@ local function MakeChannelToDetector()
   return chan_to_det, det_to_chan
 end
 
-local chan_to_det, det_to_chan = MakeChannelToDetector()
+chan_to_det, det_to_chan = MakeChannelToDetector()
 
 local function ToAdcChannel(key)
-  return det_to_chan[key]
+  return det_to_chan[key].channel
 end
 
 local function ToAdcChannels(det, side)
@@ -170,14 +170,14 @@ local function ToAdcChannels(det, side)
     local nchans = prop.connectors and prop.connectors or prop.strips
 
     for i=1, nchans do
-      table.insert(chs, det_to_chan[det..(side and " f" or " ")..tostring(i)])
+      table.insert(chs, det_to_chan[det..(side and " f" or " ")..tostring(i)].channel)
     end
   elseif side == "b" or side == "back" then
     local prop = detectors_properties[type].back
     local nchans = prop.connectors and prop.connectors or prop.strips
 
     for i=1, nchans do
-      table.insert(chs, det_to_chan[det.." b"..tostring(i)])
+      table.insert(chs, det_to_chan[det.." b"..tostring(i)].channel)
     end
   end
 
@@ -185,7 +185,11 @@ local function ToAdcChannels(det, side)
 end
 
 local function ToDetKey(channel)
+  return chan_to_det[channel].stripid
+end
+
+local function ToDetInfo(channel)
   return chan_to_det[channel]
 end
 
-return {getchannel=ToAdcChannel, getchannels=ToAdcChannels, getdetkey=ToDetKey, det_prop=detectors_properties}
+return {getchannel=ToAdcChannel, getchannels=ToAdcChannels, getdetkey=ToDetKey, getdetinfo=ToDetInfo, det_prop=detectors_properties}

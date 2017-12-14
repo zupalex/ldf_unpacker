@@ -1,4 +1,4 @@
-orruba_applycal = false
+orruba_applycal = true
 
 orruba_monitors = {}
 haliases = {}
@@ -6,7 +6,7 @@ haliases = {}
 local mapping = require("ldf_unpacker/se84_mapping")
 local calib = require("ldf_unpacker/se84_calibration")
 
-local ch_cal, det_cal = calib.readcal()
+ch_cal, det_cal = calib.readcal()
 
 function AddMonitor(alias, hparams, fillfn)
   if type(alias) == "table" then
@@ -285,12 +285,68 @@ local fillfns = {
       end
     end
   end,
+
+  FillSIDAREnvsStrip = function(hist, ev)
+    if not orruba_applycal then return end
+
+    for k, v in pairs(ev) do
+      if k > 100 and k < 199 then
+        local en = (ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev)) or nil
+        if en then
+          local stripnum = (k-201)%16
+          hist:Fill(stripnum, en)
+        end
+      end
+    end
+  end,
+
+  FillSIDARdEvsE = function(hist, ev)
+    if not orruba_applycal then return end
+
+    local exclude = {[2] = true, [3] = true, [9] = true, [44] = true, [48] = true, [76] = true, [176] = true, }
+
+    for det=1, 16 do
+      local first_ch = 101 + (det-1)*16
+
+      local max_E_en = 0
+      for ch = first_ch, first_ch+16 do
+        if ev[ch] and not exclude[ch] then
+          local en = (ch_cal[ch] and ch_cal[ch].calibrate and ch_cal[ch]:calibrate(ev[ch], ev)) or nil
+          if en and en > max_E_en then
+            max_E_en = en
+          end
+        end
+      end
+
+      if max_E_en > 0 then
+        local max_dE_en = 0
+        for ch = first_ch-100, first_ch-100+16 do
+          if ev[ch] and not exclude[ch] then
+            local en = (ch_cal[ch] and ch_cal[ch].calibrate and ch_cal[ch]:calibrate(ev[ch], ev)) or nil
+            if en and en > max_dE_en then
+              max_dE_en = en
+            end
+          end
+        end
+
+        if max_E_en > 0 and max_dE_en > 0 then
+          hist:Fill(max_E_en, max_dE_en)
+        end
+      end
+    end
+  end,
 }
 
 ----------------------- Monitors ---------------------------
 
 function SetupStandardMonitors()
-  AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 4096, nbinsy = 4096}, fillfns.FillChVsValue)
+  if not orruba_applycal then
+    AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 4096, nbinsy = 4096}, fillfns.FillChVsValue)
+  else
+    AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillChVsValue)
+    AddMonitor("SIDAR En vs. Strip", {name = "sidar_en_vs_strip", title = "SIDAR Energy vs. Strip#", xmin = 0, xmax = 16, nbinsx = 16, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillSIDAREnvsStrip)
+    AddMonitor("SIDAR dE vs. E", {name = "sidar_dE_vs_E", title = "SIDAR dE vs. E", xmin = 0, xmax = 15, nbinsx = 1500, ymin = 0, ymax = 15, nbinsy = 1500}, fillfns.FillSIDARdEvsE)
+  end
 
   for detid=1, 12 do
     for strip=1, 4 do

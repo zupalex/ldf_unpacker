@@ -1,5 +1,10 @@
-local calfile = "/mnt/hgfs/Dropbox/ORNL/software/luaXroot/user/ldf_unpacker/cal_params_alpha_cal_E_01.txt"
-local resisitive_calfile = "/mnt/hgfs/Dropbox/ORNL/software/luaXroot/user/ldf_unpacker/test_resistive.txt"
+local calfile, resisitive_calfile
+
+function SetCalibrationFiles(standard, resistive)
+  calfile = standard
+  resisitive_calfile = resistive
+end
+
 
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------

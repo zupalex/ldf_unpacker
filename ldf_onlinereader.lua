@@ -212,6 +212,11 @@ function StartMonitoring(input, raw_dump, replay)
 
   OpenInputFile(type(input) == "table" and input[1] or input)
 
+  AddSignal("display", function(hname, opts)
+      if haliases[hname] then haliases[hname].hist:Draw(opts)
+      elseif orruba_monitors[hname] then orruba_monitors[hname].hist:Draw(opts) end
+    end)
+
   SetupStandardMonitors()
 
   if bindata.file == nil then
@@ -254,6 +259,11 @@ function StartMonitoring(input, raw_dump, replay)
               h.fillfn(h.hist, ev)
             end
           end
+        end
+
+        if i%100 == 0 then
+          CheckSignals()
+          theApp:Update()
         end
       end
 
