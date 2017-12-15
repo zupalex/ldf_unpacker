@@ -12,99 +12,121 @@ local detectors_properties = {
 
 local mapping = {
   SIDAR = {
-    dE1 = { front = 1  },
-    dE2 = { front = 17 },
-    dE3 = { front = 33 },
-    dE4 = { front = 49 },
-    dE5 = { front = 65 },
-    dE6 = { front = 81 },
+    dE1 = { front = { ch=1 } },
+    dE2 = { front = { ch=7 } },
+    dE3 = { front = { ch=3 } },
+    dE4 = { front = { ch=9 } },
+    dE5 = { front = { ch=5 } },
+    dE6 = { front = { ch=1 } },
 
-    E1 = { front = 101 },
-    E2 = { front = 117 },
-    E3 = { front = 133 },
-    E4 = { front = 149 },
-    E5 = { front = 165 },
-    E6 = { front = 181 },
+    E1 = { front = { ch=01 } },
+    E2 = { front = { ch=17 } },
+    E3 = { front = { ch=33 } },
+    E4 = { front = { ch=49 } },
+    E5 = { front = { ch=65 } },
+    E6 = { front = { ch=81 } },
   },
 
   BB10 = {
-    [1] =  { front = 201 },
-    [2] =  { front = 209 },
-    [3] =  { front = 217 },
-    [4] =  { front = 225 },
-    [5] =  { front = 233 },
-    [6] =  { front = 241 },
-    [7] =  { front = 249 },
-    [8] =  { front = 257 },
-    [9] =  { front = 265 },
-    [10] = { front = 273 },
-    [11] = { front = 281 },
-    [12] = { front = 289 },
+    [1] =  { front = { ch=01 } },
+    [2] =  { front = { ch=09 } },
+    [3] =  { front = { ch=17 } },
+    [4] =  { front = { ch=25 } },
+    [5] =  { front = { ch=33 } },
+    [6] =  { front = { ch=41 } },
+    [7] =  { front = { ch=49 } },
+    [8] =  { front = { ch=57 } },
+    [9] =  { front = { ch=65 } },
+    [10] = { front = { ch=73 } },
+    [11] = { front = { ch=81 } },
+    [12] = { front = { ch=89 } },
   },
 
   SuperX3 = {
-    U1 =  { front = 301 , back = 501 },
-    U2 =  { front = 309 , back = 505 },
-    U3 =  { front = 317 , back = 509 },
-    U4 =  { front = 325 , back = 513 },
-    U5 =  { front = 333 , back = 533 },
-    U6 =  { front = 341 , back = 537 },
-    U7 =  { front = 349 , back = 517 },
-    U8 =  { front = 357 , back = 521 },
-    U9 =  { front = 365 , back = 525 },
-    U10 = { front = 373 , back = 529 },
-    U11 = { front = 381 , back = 541 },
-    U12 = { front = 389 , back = 545 },
+    U1 =  { front = { ch=01 } , back = { ch=01 } },
+    U2 =  { front = { ch=09 } , back = { ch=05 } },
+    U3 =  { front = { ch=17 } , back = { ch=09 } },
+    U4 =  { front = { ch=25 } , back = { ch=13 } },
+    U5 =  { front = { ch=33 } , back = { ch=33 } },
+    U6 =  { front = { ch=41 } , back = { ch=37 } },
+    U7 =  { front = { ch=49 } , back = { ch=17 } },
+    U8 =  { front = { ch=57 } , back = { ch=21 } },
+    U9 =  { front = { ch=65 } , back = { ch=25 } },
+    U10 = { front = { ch=73 } , back = { ch=29 } },
+    U11 = { front = { ch=81 } , back = { ch=41 } },
+    U12 = { front = { ch=89 } , back = { ch=45 } },
 
-    D1 =  { front = 401 , back = 549 },
-    D2 =  { front = 409 , back = 553 },
-    D3 =  { front = 417 , back = 557 },
-    D4 =  { front = 425 , back = 561 },
-    D5 =  { front = 433 , back = 581 },
-    D6 =  { front = 441 , back = 585 },
-    D7 =  { front = 449 , back = 565 },
-    D8 =  { front = 457 , back = 569 },
-    D9 =  { front = 465 , back = 573 },
-    D10 = { front = 473 , back = 577 },
-    D11 = { front = 481 , back = 589 },
-    D12 = { front = 489 , back = 593 },
+    D1 =  { front = { ch=01 } , back = { ch=49 } },
+    D2 =  { front = { ch=09 } , back = { ch=53 } },
+    D3 =  { front = { ch=17 } , back = { ch=57 } },
+    D4 =  { front = { ch=25 } , back = { ch=61 } },
+    D5 =  { front = { ch=33 } , back = { ch=81 } },
+    D6 =  { front = { ch=41 } , back = { ch=85 } },
+    D7 =  { front = { ch=49 } , back = { ch=65 } },
+    D8 =  { front = { ch=57 } , back = { ch=69 } },
+    D9 =  { front = { ch=65 } , back = { ch=73 } },
+    D10 = { front = { ch=73 } , back = { ch=77 } },
+    D11 = { front = { ch=81 } , back = { ch=89 } },
+    D12 = { front = { ch=89 } , back = { ch=93 } },
   },
 
   X3 = {
-    [1]  =  { front = 604 },
-    [2]  =  { front = 603 },
-    [3]  =  { front = 602 },
-    [4]  =  { front = 601 },
-    [5]  =  { front = 606 },
-    [6]  =  { front = 605 },
-    [7]  =  { front = 612 },
-    [8]  =  { front = 611 },
-    [9]  =  { front = 610 },
-    [10] =  { front = 609 },
-    [11] =  { front = 614 },
-    [12] =  { front = 613 },
+    [1]  =  { front = { ch=04 } },
+    [2]  =  { front = { ch=03 } },
+    [3]  =  { front = { ch=02 } },
+    [4]  =  { front = { ch=01 } },
+    [5]  =  { front = { ch=06 } },
+    [6]  =  { front = { ch=05 } },
+    [7]  =  { front = { ch=12 } },
+    [8]  =  { front = { ch=11 } },
+    [9]  =  { front = { ch=10 } },
+    [10] =  { front = { ch=09 } },
+    [11] =  { front = { ch=14 } },
+    [12] =  { front = { ch=13 } },
   },
 
   Elastics = {
-    BOTTOM_LEFT = { front = 633, back = -1 },
-    BOTTOM_RIGHT = { front = 641, back = -1 },
-    TOP_RIGHT = { front = 649, back = -1 },
+    BOTTOM_LEFT = { front = { ch=633 } , back = { ch=-1 } },
+    BOTTOM_RIGHT = { front = { ch=641 }, back = { ch=-1 } },
+    TOP_RIGHT = { front = { ch=649 }, back = { ch=-1 } },
   },
 
   MCP = {
     [1] = { 
-      QDC = {TOP_RIGHT = 865, TOP_LEFT = 866, BOTTOM_LEFT = 867, BOTTOM_RIGHT = 868}, 
-      MPD4 = {TOP_RIGHT = 617, TOP_LEFT = 618, BOTTOM_LEFT = 619, BOTTOM_RIGHT = 620}
+      QDC = {
+        TOP_RIGHT = { ch=865 }, 
+        TOP_LEFT = { ch=866 }, 
+        BOTTOM_LEFT = { ch=867 }, 
+        BOTTOM_RIGHT = { ch=868 } 
+      }, 
+
+      MPD4 = {
+        TOP_RIGHT = { ch=617, threshold=101 }, 
+        TOP_LEFT = { ch=618, threshold=100 }, 
+        BOTTOM_LEFT = { ch=619, threshold=119 }, 
+        BOTTOM_RIGHT = { ch=620, threshold=76 } 
+      },
     },
 
     [2] = { 
-      QDC = {TOP_RIGHT = 869, TOP_LEFT = 870, BOTTOM_LEFT = 871, BOTTOM_RIGHT = 872},
-      MPD4 = {TOP_RIGHT = 621, TOP_LEFT = 622, BOTTOM_LEFT = 623, BOTTOM_RIGHT = 624}
+      QDC = {
+        TOP_RIGHT = { ch=869 }, 
+        TOP_LEFT = { ch=870 }, 
+        BOTTOM_LEFT = { ch=871 }, 
+        BOTTOM_RIGHT = { ch=872 } 
+      },
+
+      MPD4 = {
+        TOP_RIGHT = { ch=621, threshold=125 }, 
+        TOP_LEFT = { ch=622, threshold=106 }, 
+        BOTTOM_LEFT = { ch=623, threshold=95 }, 
+        BOTTOM_RIGHT = { ch=624, threshold=102 } 
+      },
     }
   },
 
   TDC = {
-    E1 = 805, XF = 806, RF = 807, MCP1 = 809, MCP2 = 810,
+    E1 = { ch=805 }, XF = { ch=806 }, RF = { ch=807 }, MCP1 = { ch=809 }, MCP2 = { ch=810 },
   }
 }
 
@@ -116,7 +138,7 @@ local function MakeChannelToDetector()
       if type(v) == "table" and v.front then
         for i= 1, detectors_properties[k].front.connectors or detectors_properties[k].front.strips do
           local fkey = k.." "..tostring(det).." "..(v.back == nil and "" or "f")..tostring(i)
-          local chnum = v.front+i-1
+          local chnum = v.front.ch+i-1
           chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, stripnum = i}
           det_to_chan[fkey] = {channel = chnum, detid = det, dettype = k, stripnum = i}
         end
@@ -125,7 +147,7 @@ local function MakeChannelToDetector()
       if type(v) == "table" and v.back then
         for i= 1, detectors_properties[k].back.connectors or detectors_properties[k].back.strips do
           local bkey = k.." "..tostring(det).." b"..tostring(i)
-          local chnum = v.back+i-1
+          local chnum = v.back.ch+i-1
           chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, stripnum = i}
           det_to_chan[bkey] = {channel = chnum, detid = det, dettype = k, stripnum = i}
         end
@@ -133,20 +155,20 @@ local function MakeChannelToDetector()
 
       if k == "MCP" then
         for mod, chs in pairs(v) do
-          for attr, chnum in pairs(chs) do
+          for attr, chinfo in pairs(chs) do
             local fkey = k.." "..tostring(det).." "..tostring(mod).. " "..tostring(attr)
-            chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, detmod = mod, stripnum = attr}
-            det_to_chan[fkey] = {channel = chnum, detid = det, dettype = k, detmod = mod, stripnum = i}
+            chan_to_det[chinfo.ch] = {stripid = fkey, detid = det, dettype = k, detmod = mod, stripnum = attr}
+            det_to_chan[fkey] = {channel = chinfo.ch, detid = det, dettype = k, detmod = mod, stripnum = i}
           end
         end
       end
     end
 
     if k == "TDC" then
-      for det, ch in pairs(dets) do
+      for det, chinfo in pairs(dets) do
         local fkey = k.." "..tostring(det)
-        chan_to_det[ch] = {stripid = fkey, detid = det, dettype = k}
-        det_to_chan[fkey] = {channel = ch, detid = det, dettype = k}
+        chan_to_det[chinfo.ch] = {stripid = fkey, detid = det, dettype = k}
+        det_to_chan[fkey] = {channel = chinfo.ch, detid = det, dettype = k}
       end
     end
   end
