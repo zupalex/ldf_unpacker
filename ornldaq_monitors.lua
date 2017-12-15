@@ -339,7 +339,8 @@ local fillfns = {
         if max_E_en > 0 and max_dE_en > 0 then
           orruba_monitors.sidar_dE_vs_E.hist:Fill(max_E_en, max_dE_en)
 
-          if proton_cut:IsInside(max_E_en, max_dE_en) then
+          if proton_cut and proton_cut:IsInside(max_E_en, max_dE_en) then
+            validate_SIDAR_proton_gate = true
             orruba_monitors.sidar_en_vs_strip_protons.hist:Fill(max_E_strip, max_E_en)
           end
         end
@@ -354,12 +355,7 @@ function SetupStandardMonitors()
   if not orruba_applycal then
     AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 4096, nbinsy = 4096}, fillfns.FillChVsValue)
   else
-    <<<<<<< HEAD
-    AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillChVsValue)
-    AddMonitor("SIDAR En vs. Strip", {name = "sidar_en_vs_strip", title = "SIDAR Energy vs. Strip#", xmin = 0, xmax = 16, nbinsx = 16, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillSIDAREnvsStrip)
-    AddMonitor("SIDAR dE vs. E", {name = "sidar_dE_vs_E", title = "SIDAR dE vs. E", xmin = 0, xmax = 15, nbinsx = 1500, ymin = 0, ymax = 15, nbinsy = 1500}, fillfns.FillSIDARdEvsE)
-    =======
-    local cfile = TFile("/mnt/hgfs/Dropbox/ORNL/software/luaXroot/user/ldf_unpacker/pid_cuts.root", "read")
+    local cfile = TFile("/user/e16025/luaXroot/user/pid_cuts.root", "read")
     proton_cut = cfile:GetObject("TCutG", "maybeprotons")
     cfile:Close()
 
@@ -367,7 +363,6 @@ function SetupStandardMonitors()
     AddMonitor("SIDAR En vs. Strip", {name = "sidar_en_vs_strip", title = "SIDAR Energy vs. Strip#", xmin = 0, xmax = 16, nbinsx = 16, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillSIDARGraphs)
     AddMonitor("SIDAR En vs. Strip Gate Protons", {name = "sidar_en_vs_strip_protons", title = "SIDAR Energy vs. Strip# gate protons (maybe?)", xmin = 0, xmax = 16, nbinsx = 16, ymin = 0, ymax = 10, nbinsy = 1000}, function() end)
     AddMonitor("SIDAR dE vs. E", {name = "sidar_dE_vs_E", title = "SIDAR dE vs. E", xmin = 0, xmax = 15, nbinsx = 1500, ymin = 0, ymax = 15, nbinsy = 1500}, function() end)
-    >>>>>>> b402601c8f0d4bff89beb50e19ac1dcca5eb03cd
   end
 
   for detid=1, 12 do
