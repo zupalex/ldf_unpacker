@@ -6,6 +6,8 @@ local calib = require("ldf_unpacker/se84_calibration")
 
 --det_params, ch_params = calib.readcal()
 
+orruba_applycal = false
+
 local function UpdateCalibFile(file, buffer_file, det_type, additional_matches, not_any_of)
   local line = file:read("l")
 
@@ -83,7 +85,7 @@ local detectors = {
 --  {type = "SIDAR", id = "dE3" },
 --  {type = "SIDAR", id = "dE4" },
 --  {type = "SIDAR", id = "dE5" },
-  {type = "SIDAR", id = "dE6" },
+--  {type = "SIDAR", id = "dE6" },
 
 --  {type = "SIDAR", id = "E1" },
 --  {type = "SIDAR", id = "E2" },
@@ -92,31 +94,31 @@ local detectors = {
 --  {type = "SIDAR", id = "E5" },
 --  {type = "SIDAR", id = "E6" },
 
---  {type = "BB10", id = "1" },
---  {type = "BB10", id = "2" },
---  {type = "BB10", id = "3" },
---  {type = "BB10", id = "4" },
---  {type = "BB10", id = "5" },
---  {type = "BB10", id = "6" },
---  {type = "BB10", id = "7" },
---  {type = "BB10", id = "8" },
---  {type = "BB10", id = "9" },
---  {type = "BB10", id = "10"},
---  {type = "BB10", id = "11"},
---  {type = "BB10", id = "12"},
+--  {type = "BB10", id = "U1" },
+--  {type = "BB10", id = "U2" },
+--  {type = "BB10", id = "U3" },
+--  {type = "BB10", id = "U4" },
+--  {type = "BB10", id = "U5" },
+--  {type = "BB10", id = "U6" },
+--  {type = "BB10", id = "U7" },
+--  {type = "BB10", id = "U8" },
+--  {type = "BB10", id = "U9" },
+--  {type = "BB10", id = "U10"},
+--  {type = "BB10", id = "U11"},
+--  {type = "BB10", id = "U12"},
 
---  {type = "X3", id = "1" },
---  {type = "X3", id = "2" },
---  {type = "X3", id = "3" },
---  {type = "X3", id = "4" },
---  {type = "X3", id = "5" },
---  {type = "X3", id = "6" },
---  {type = "X3", id = "7" },
---  {type = "X3", id = "8" },
---  {type = "X3", id = "9" },
---  {type = "X3", id = "10"},
---  {type = "X3", id = "11"},
---  {type = "X3", id = "12"},
+  {type = "X3", id = "E1" },
+  {type = "X3", id = "E2" },
+  {type = "X3", id = "E3" },
+  {type = "X3", id = "E4" },
+  {type = "X3", id = "E5" },
+  {type = "X3", id = "E6" },
+  {type = "X3", id = "E7" },
+  {type = "X3", id = "E8" },
+  {type = "X3", id = "E9" },
+  {type = "X3", id = "E10"},
+  {type = "X3", id = "E11"},
+  {type = "X3", id = "E12"},
 }
 
 local function GetMaxPeak(amps)
@@ -299,8 +301,9 @@ function CalibrateStandardStrips(input, savetoroot)
     local ch_vs_en=GetObject("TH2D", "h_monitor")
 
     for i, det in ipairs(detectors) do
+      local det_nstrip = mapping.det_prop[det.type][det.side ~= nil and det.side or "front"].strips
       for j, ch in ipairs(mapping.getchannels(det.type.." "..det.id, det.side)) do
-        local stripid = (i-1)*4+j
+        local stripid = (i-1)*det_nstrip+j
         nstrips[stripid] = ch_vs_en:ProjectY(ch, ch):Clone()
         nstrips[stripid]:SetName(tostring(det.type).."_"..tostring(det.id).."_strip_"..(det.side and det.side or "")..tostring(j))
         nstrips[stripid]:SetTitle(tostring(det.type).." "..tostring(det.id).." Strip "..(det.side == "f" and "front" or (det.side == "b" and "back" or ""))..tostring(j))
@@ -318,8 +321,9 @@ function CalibrateStandardStrips(input, savetoroot)
     local input_root = TFile(input, "read")
 
     for i, det in ipairs(detectors) do
+      local det_nstrip = mapping.det_prop[det.type][det.side ~= nil and det.side or "front"].strips
       for j, ch in ipairs(mapping.getchannels(det.type.." "..det.id, det.side)) do
-        local stripid = (i-1)*4+j
+        local stripid = (i-1)*det_nstrip+j
         nstrips[stripid] = input_root:GetObject("TH1", tostring(det.type).."_"..tostring(det.id).."_strip_"..(det.side and det.side or "")..tostring(j))
         nstrips[stripid].id = det.id
         nstrips[stripid].stripnum = j

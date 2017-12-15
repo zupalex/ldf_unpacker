@@ -174,8 +174,6 @@ local function ReadX3Params(cur_det, det_cal, ch_cal)
   local line = cal_input:read("l")
 
   while line do
-    print(line)
-
     local pIter = line:gmatch("-?%d+%.?%d*")
 
     local strip, slope, offset = pIter(), pIter(), pIter()
