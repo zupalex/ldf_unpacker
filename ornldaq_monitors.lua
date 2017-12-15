@@ -286,39 +286,46 @@ local fillfns = {
     end
   end,
 
-  FillSIDAREnvsStrip = function(hist, ev)
+--  FillSIDAREnvsStrip = function(hist, ev)
+--    if not orruba_applycal then return end
+
+--    local exclude = { [102] = true, [176] = true, }
+
+--    for k, v in pairs(ev) do
+--      if k > 100 and k < 199 and not exclude[k] then
+--        local en = (ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev)) or nil
+--        if en then
+--          local stripnum = (k-101)%16
+--          hist:Fill(stripnum, en)
+--        end
+--      end
+--    end
+--  end,
+
+  FillSIDARGraphs = function(hist, ev)
     if not orruba_applycal then return end
 
-    for k, v in pairs(ev) do
-      if k > 100 and k < 199 then
-        local en = (ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev)) or nil
-        if en then
-          local stripnum = (k-201)%16
-          hist:Fill(stripnum, en)
-        end
-      end
-    end
-  end,
-
-  FillSIDARdEvsE = function(hist, ev)
-    if not orruba_applycal then return end
-
-    local exclude = {[2] = true, [3] = true, [9] = true, [44] = true, [48] = true, [76] = true, [176] = true, }
+    local exclude = {[2] = true, [3] = true, [9] = true, [44] = true, [48] = true, [76] = true, [102] = true, [176] = true, }
 
     for det=1, 16 do
       local first_ch = 101 + (det-1)*16
 
       local max_E_en = 0
+      local max_E_strip = -1
       for ch = first_ch, first_ch+16 do
         if ev[ch] and not exclude[ch] then
           local en = (ch_cal[ch] and ch_cal[ch].calibrate and ch_cal[ch]:calibrate(ev[ch], ev)) or nil
           if en and en > max_E_en then
+            local stripnum = (ch-101)%16
             max_E_en = en
+            max_E_strip = stripnum
           end
         end
       end
 
       if max_E_en > 0 then
+        orruba_monitors.sidar_en_vs_strip.hist:Fill(max_E_strip, max_E_en)
+
         local max_dE_en = 0
         for ch = first_ch-100, first_ch-100+16 do
           if ev[ch] and not exclude[ch] then
@@ -330,7 +337,11 @@ local fillfns = {
         end
 
         if max_E_en > 0 and max_dE_en > 0 then
-          hist:Fill(max_E_en, max_dE_en)
+          orruba_monitors.sidar_dE_vs_E.hist:Fill(max_E_en, max_dE_en)
+
+          if proton_cut:IsInside(max_E_en, max_dE_en) then
+            orruba_monitors.sidar_en_vs_strip_protons.hist:Fill(max_E_strip, max_E_en)
+          end
         end
       end
     end
@@ -343,9 +354,14 @@ function SetupStandardMonitors()
   if not orruba_applycal then
     AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 4096, nbinsy = 4096}, fillfns.FillChVsValue)
   else
+    local cfile = TFile("/mnt/hgfs/Dropbox/ORNL/software/luaXroot/user/ldf_unpacker/pid_cuts.root", "read")
+    proton_cut = cfile:GetObject("TCutG", "maybeprotons")
+    cfile:Close()
+
     AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillChVsValue)
-    AddMonitor("SIDAR En vs. Strip", {name = "sidar_en_vs_strip", title = "SIDAR Energy vs. Strip#", xmin = 0, xmax = 16, nbinsx = 16, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillSIDAREnvsStrip)
-    AddMonitor("SIDAR dE vs. E", {name = "sidar_dE_vs_E", title = "SIDAR dE vs. E", xmin = 0, xmax = 15, nbinsx = 1500, ymin = 0, ymax = 15, nbinsy = 1500}, fillfns.FillSIDARdEvsE)
+    AddMonitor("SIDAR En vs. Strip", {name = "sidar_en_vs_strip", title = "SIDAR Energy vs. Strip#", xmin = 0, xmax = 16, nbinsx = 16, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillSIDARGraphs)
+    AddMonitor("SIDAR En vs. Strip Gate Protons", {name = "sidar_en_vs_strip_protons", title = "SIDAR Energy vs. Strip# gate protons (maybe?)", xmin = 0, xmax = 16, nbinsx = 16, ymin = 0, ymax = 10, nbinsy = 1000}, function() end)
+    AddMonitor("SIDAR dE vs. E", {name = "sidar_dE_vs_E", title = "SIDAR dE vs. E", xmin = 0, xmax = 15, nbinsx = 1500, ymin = 0, ymax = 15, nbinsy = 1500}, function() end)
   end
 
   for detid=1, 12 do
