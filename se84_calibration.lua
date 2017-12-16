@@ -117,7 +117,7 @@ local function ReadSX3FrontsideParams(cur_det, det_cal, ch_cal)
         return line
       end
     else
-      line = rescal_input:read("l")
+      return line
     end
   end
 end
@@ -250,6 +250,8 @@ local function ReadCal()
         end      
       else
         line = ReadSX3FrontsideParams(cur_det, det_cal, ch_cal)
+        
+        cur_det = nil
       end
     end
   end

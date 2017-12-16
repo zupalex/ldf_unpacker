@@ -46,16 +46,8 @@ local function PrepareSX3Computation(detector, strip, useback)
   local detKey1, detKey2 = detector.." f"..tostring(strip_right), detector.." f"..tostring(strip_left)
   local ch_right, ch_left = mapping.getchannel(detKey1), mapping.getchannel(detKey2)
 
-  local GetEn
-
-  if orruba_applycal and det_cal[detKey1] and det_cal[detKey2] then
-    GetEn = function(ev)
-      return ev[ch_right] and det_cal[detKey1]:calibrate(ev[ch_right], ev) or ev[ch_right], ev[ch_left] and det_cal[detKey2]:calibrate(ev[ch_left], ev) or ev[ch_left]
-    end
-  else
-    GetEn = function(ev)
-      return ev[ch_right], ev[ch_left]
-    end
+  local GetEn = function(ev)
+    return ev[ch_right], ev[ch_left]
   end
 
   local GetEnSum
@@ -73,7 +65,7 @@ local function PrepareSX3Computation(detector, strip, useback)
       for _, s in ipairs(backStrips) do
         local en_ = ev[s]
         if en_ and en_ > maxBack then
-          maxBack = orruba_applycal and ch_cal[s] and ch_cal[s]:calibrate(en_, ev) or en_
+          maxBack = en_
         end
       end
 
@@ -91,7 +83,16 @@ local function PrepareSX3Computation(detector, strip, useback)
   return ch_left, ch_right, GetEnSum, GetEnDiff
 end
 
-proton_in_orruba = false
+local function GetResistiveSum(channel, ev)
+  if channel%2 == 0 then
+    return ev[channel]+ev[channel-1]
+  else
+    return ev[channel]+ev[channel+1]
+  end
+end
+
+have_barrel = false
+have_elastics = false
 
 local fillfns = {
   FillChVsValue = function(hist, ev)
@@ -99,9 +100,25 @@ local fillfns = {
       local en = orruba_applycal and (ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev) or nil) or v
       if en then
         hist:Fill(k, en)
+      end
+    end
+  end,
 
-        if orruba_applycal and en > 4 and ((k >= 101 and k < 199) or (k >= 301 and k < 399 ))then
-          proton_in_orruba = true
+  CalibrateAndFillChVsValue = function(hists, ev, cal_ev)
+    for k, v in pairs(ev) do
+      local en = orruba_applycal and (ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev) or nil) or v
+      cal_ev[k] = en
+      if en then
+        for i, v in ipairs(hists) do
+          v:Fill(k, en)
+        end
+
+        if not have_barrel and orruba_applycal and en > 4 and ((k >= 101 and k < 199) or (k >= 501 and k < 599 ))then
+          have_barrel = true
+        end
+
+        if not have_elastics and orruba_applycal and k >= 633 and k <= 656 and (GetResistiveSum(k, ev) > 3) then
+          have_elastics = true
         end
       end
     end
@@ -149,22 +166,18 @@ local fillfns = {
   FillSX3LeftVsRight = function(detector, strip)
     local ch1, ch2 = PrepareSX3Computation(detector, strip)
 
-    if orruba_applycal and det_cal[detKey1] and det_cal[detKey2] then
-      GetEn = function(ev)
-        return ev[ch1] and det_cal[detKey1]:calibrate(ev[ch1], ev) or nil, ev[ch2] and det_cal[detKey2]:calibrate(ev[ch2], ev) or nil
-      end
-    else
-      GetEn = function(ev)
-        return ev[ch1], ev[ch2]
+    return function(hist, ev)
+      if ev[ch1] and ev[ch2] then 
+        hist:Fill(ev[ch1], ev[ch2])
       end
     end
+  end,
+
+  FillResistiveFrontSum = function(detector, strip)
+    local ch1, ch2, GetEnSum = PrepareSX3Computation(detector, strip)
 
     return function(hist, ev)
-      local en_right, en_left = GetEn(ev)
-
-      if en_left and en_right then 
-        hist:Fill(en_left, en_right)
-      end
+      return GetEnSum(ch1, ch2)
     end
   end,
 
@@ -307,19 +320,16 @@ local fillfns = {
 
     local exclude = {[2] = true, [3] = true, [9] = true, [44] = true, [48] = true, [76] = true, [102] = true, [176] = true, }
 
-    for det=1, 16 do
+    for det=2, 16 do
       local first_ch = 101 + (det-1)*16
 
       local max_E_en = 0
       local max_E_strip = -1
       for ch = first_ch, first_ch+16 do
-        if ev[ch] and not exclude[ch] then
-          local en = (ch_cal[ch] and ch_cal[ch].calibrate and ch_cal[ch]:calibrate(ev[ch], ev)) or nil
-          if en and en > max_E_en then
-            local stripnum = (ch-101)%16
-            max_E_en = en
-            max_E_strip = stripnum
-          end
+        if not exclude[ch] and ev[ch] and ev[ch] > max_E_en then
+          local stripnum = (ch-101)%16
+          max_E_en = ev[ch]
+          max_E_strip = stripnum
         end
       end
 
@@ -328,18 +338,16 @@ local fillfns = {
 
         local max_dE_en = 0
         for ch = first_ch-100, first_ch-100+16 do
-          if ev[ch] and not exclude[ch] then
-            local en = (ch_cal[ch] and ch_cal[ch].calibrate and ch_cal[ch]:calibrate(ev[ch], ev)) or nil
-            if en and en > max_dE_en then
-              max_dE_en = en
-            end
+          if not exclude[ch] and ev[ch] and ev[ch] > max_dE_en then
+            max_dE_en = ev[ch]
           end
         end
 
         if max_E_en > 0 and max_dE_en > 0 then
           orruba_monitors.sidar_dE_vs_E.hist:Fill(max_E_en, max_dE_en)
 
-          if proton_cut and proton_cut:IsInside(max_E_en, max_dE_en) then
+          if proton_cut and proton_cut:IsInside(max_E_en, max_dE_en) == 1 then
+
             validate_SIDAR_proton_gate = true
             orruba_monitors.sidar_en_vs_strip_protons.hist:Fill(max_E_strip, max_E_en)
           end
@@ -365,13 +373,13 @@ function SetupStandardMonitors()
     AddMonitor("SIDAR dE vs. E", {name = "sidar_dE_vs_E", title = "SIDAR dE vs. E", xmin = 0, xmax = 15, nbinsx = 1500, ymin = 0, ymax = 15, nbinsy = 1500}, function() end)
   end
 
-  for detid=1, 12 do
-    for strip=1, 4 do
-      local hname = string.format("SX3_U%d_resistive_%d", detid, strip)
-      local htitle = string.format("SuperX3 U%d front strip %d", detid, strip)
-      local detkey = string.format("SuperX3 U%d", detid)
-      local halias = string.format("SX3 U%d en f%d", detid, strip)
-      AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=10, nbinsx=1000, ymin=0, ymax=10, nbinsy=1000}, fillfns.FillSX3LeftVsRight(detkey, strip))
+--  for detid=1, 12 do
+--    for strip=1, 4 do
+--      local hname = string.format("SX3_U%d_resistive_%d", detid, strip)
+--      local htitle = string.format("SuperX3 U%d front strip %d", detid, strip)
+--      local detkey = string.format("SuperX3 U%d", detid)
+--      local halias = string.format("SX3 U%d en f%d", detid, strip)
+--      AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=10, nbinsx=1000, ymin=0, ymax=10, nbinsy=1000}, fillfns.FillSX3LeftVsRight(detkey, strip))
 
 --      hname = string.format("SX3_U%d_position_%d", detid, strip)
 --      htitle = string.format("SuperX3 U%d position strip %d", detid, strip)
@@ -398,8 +406,8 @@ function SetupStandardMonitors()
 --      htitle = string.format("SuperX3 D%d position strip %d using backside energy", detid, strip)
 --      halias = string.format("SX3 D%d pos f%d en back", detid, strip)
 --      AddMonitor(halias, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=0, ymax=4096, nbinsy=2048}, fillfns.FillSX3RelativePosition(detkey, strip, true))
-    end
-  end
+--    end
+--  end
 
 --  AddMonitor("MCP1 X", {name = "MCP1_X_MBD4", title = "MCP1 X Position MBD4", xmin = 0, xmax = 1024, nbinsx = 512}, fillfns.FillMCP("MCP 1 MBD4", "x"))
 --  AddMonitor("MCP1 Y", {name = "MCP1_Y_MBD4", title = "MCP1 Y Position MBD4", xmin = 0, xmax = 1024, nbinsx = 512}, fillfns.FillMCP("MCP 1 MBD4", "y"))

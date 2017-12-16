@@ -86,41 +86,41 @@ local mapping = {
   },
 
   Elastics = {
-    BOTTOM_LEFT = { front = { ch=633 } , back = { ch=-1 } },
-    BOTTOM_RIGHT = { front = { ch=641 }, back = { ch=-1 } },
-    TOP_RIGHT = { front = { ch=649 }, back = { ch=-1 } },
+    BOTTOMLEFT = { front = { ch=633 } , back = { ch=-1 } },
+    BOTTOMRIGHT = { front = { ch=641 }, back = { ch=-1 } },
+    TOPRIGHT = { front = { ch=649 }, back = { ch=-1 } },
   },
 
   MCP = {
-    [1] = { 
+    TRACK1 = { 
       QDC = {
-        TOP_RIGHT = { ch=865 }, 
-        TOP_LEFT = { ch=866 }, 
-        BOTTOM_LEFT = { ch=867 }, 
-        BOTTOM_RIGHT = { ch=868 } 
+        TOPRIGHT = { ch=865 }, 
+        TOPLEFT = { ch=866 }, 
+        BOTTOMLEFT = { ch=867 }, 
+        BOTTOMRIGHT = { ch=868 } 
       }, 
 
       MPD4 = {
-        TOP_RIGHT = { ch=617, threshold=101 }, 
-        TOP_LEFT = { ch=618, threshold=100 }, 
-        BOTTOM_LEFT = { ch=619, threshold=119 }, 
-        BOTTOM_RIGHT = { ch=620, threshold=76 } 
+        TOPRIGHT = { ch=617, threshold=101 }, 
+        TOPLEFT = { ch=618, threshold=100 }, 
+        BOTTOMLEFT = { ch=619, threshold=119 }, 
+        BOTTOMRIGHT = { ch=620, threshold=76 } 
       },
     },
 
-    [2] = { 
+    TRACK2 = { 
       QDC = {
-        TOP_RIGHT = { ch=869 }, 
-        TOP_LEFT = { ch=870 }, 
-        BOTTOM_LEFT = { ch=871 }, 
-        BOTTOM_RIGHT = { ch=872 } 
+        TOPRIGHT = { ch=869 }, 
+        TOPLEFT = { ch=870 }, 
+        BOTTOMLEFT = { ch=871 }, 
+        BOTTOMRIGHT = { ch=872 } 
       },
 
       MPD4 = {
-        TOP_RIGHT = { ch=621, threshold=125 }, 
-        TOP_LEFT = { ch=622, threshold=106 }, 
-        BOTTOM_LEFT = { ch=623, threshold=95 }, 
-        BOTTOM_RIGHT = { ch=624, threshold=102 } 
+        TOPRIGHT = { ch=621, threshold=125 }, 
+        TOPLEFT = { ch=622, threshold=106 }, 
+        BOTTOMLEFT = { ch=623, threshold=95 }, 
+        BOTTOMRIGHT = { ch=624, threshold=102 } 
       },
     }
   },
@@ -135,12 +135,15 @@ local function MakeChannelToDetector()
 
   for k, dets in pairs(mapping) do
     for det, v in pairs(dets) do
+      local detnum = det:match("%d+")
+      local detpos = det:match("%a+")
+      
       if type(v) == "table" and v.front then
         for i= 1, detectors_properties[k].front.connectors or detectors_properties[k].front.strips do
           local fkey = k.." "..tostring(det).." "..(v.back == nil and "" or "f")..tostring(i)
           local chnum = v.front.ch+i-1
-          chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, stripnum = i}
-          det_to_chan[fkey] = {channel = chnum, detid = det, dettype = k, stripnum = i}
+          chan_to_det[chnum] = {stripid = fkey, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
+          det_to_chan[fkey] = {channel = chnum, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
         end
       end
 
@@ -148,8 +151,8 @@ local function MakeChannelToDetector()
         for i= 1, detectors_properties[k].back.connectors or detectors_properties[k].back.strips do
           local bkey = k.." "..tostring(det).." b"..tostring(i)
           local chnum = v.back.ch+i-1
-          chan_to_det[chnum] = {stripid = fkey, detid = det, dettype = k, stripnum = i}
-          det_to_chan[bkey] = {channel = chnum, detid = det, dettype = k, stripnum = i}
+          chan_to_det[chnum] = {stripid = fkey, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
+          det_to_chan[bkey] = {channel = chnum, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
         end
       end
 
@@ -157,8 +160,8 @@ local function MakeChannelToDetector()
         for mod, chs in pairs(v) do
           for attr, chinfo in pairs(chs) do
             local fkey = k.." "..tostring(det).." "..tostring(mod).. " "..tostring(attr)
-            chan_to_det[chinfo.ch] = {stripid = fkey, detid = det, dettype = k, detmod = mod, stripnum = attr}
-            det_to_chan[fkey] = {channel = chinfo.ch, detid = det, dettype = k, detmod = mod, stripnum = i}
+            chan_to_det[chinfo.ch] = {stripid = fkey, detnum = detnum, detpos = detpos, detid = det, dettype = k, detmod = mod, stripnum = attr}
+            det_to_chan[fkey] = {channel = chinfo.ch, detnum = detnum, detpos = detpos, detid = det, dettype = k, detmod = mod, stripnum = i}
           end
         end
       end
@@ -167,8 +170,8 @@ local function MakeChannelToDetector()
     if k == "TDC" then
       for det, chinfo in pairs(dets) do
         local fkey = k.." "..tostring(det)
-        chan_to_det[chinfo.ch] = {stripid = fkey, detid = det, dettype = k}
-        det_to_chan[fkey] = {channel = chinfo.ch, detid = det, dettype = k}
+        chan_to_det[chinfo.ch] = {stripid = fkey, detnum = detnum, detpos = detpos, detid = det, dettype = k}
+        det_to_chan[fkey] = {channel = chinfo.ch, detnum = detnum, detpos = detpos, detid = det, dettype = k}
       end
     end
   end
