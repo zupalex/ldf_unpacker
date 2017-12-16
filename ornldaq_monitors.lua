@@ -46,16 +46,11 @@ local function PrepareSX3Computation(detector, strip, useback)
   local detKey1, detKey2 = detector.." f"..tostring(strip_right), detector.." f"..tostring(strip_left)
   local ch_right, ch_left = mapping.getchannel(detKey1), mapping.getchannel(detKey2)
 
-  local GetEn = function(ev)
-    return ev[ch_right], ev[ch_left]
-  end
-
   local GetEnSum
 
   if not useback then
     GetEnSum = function(ev)
-      local en_right, en_left = GetEn(ev)
-      local en_sum = en_right+en_left
+      local en_sum = ev[ch_right] and ev[ch_left] and ev[ch_right]+ev[ch_left] or nil
       return en_sum, en_sum
     end
   else
@@ -69,9 +64,7 @@ local function PrepareSX3Computation(detector, strip, useback)
         end
       end
 
-      local en_right, en_left = GetEn(ev)
-      local en_sum = en_right+en_left
-
+      local en_sum = ev[ch_right] and ev[ch_left] and ev[ch_right]+ev[ch_left] or nil
       return en_sum, maxBack
     end
   end
@@ -85,9 +78,9 @@ end
 
 local function GetResistiveSum(channel, ev)
   if channel%2 == 0 then
-    return ev[channel]+ev[channel-1]
+    return ev[channel] and ev[channel-1] and ev[channel]+ev[channel-1] or nil
   else
-    return ev[channel]+ev[channel+1]
+    return ev[channel] and ev[channel+1] and ev[channel]+ev[channel+1] or nil
   end
 end
 
@@ -117,8 +110,11 @@ local fillfns = {
           have_barrel = true
         end
 
-        if not have_elastics and orruba_applycal and k >= 633 and k <= 656 and (GetResistiveSum(k, ev) > 3) then
-          have_elastics = true
+        if not have_elastics and orruba_applycal and k >= 633 and k <= 656 then
+          local res_en_sum = GetResistiveSum(k, ev)
+          if res_en_sum and res_en_sum > 3 then
+            have_elastics = true
+          end
         end
       end
     end
@@ -177,7 +173,8 @@ local fillfns = {
     local ch1, ch2, GetEnSum = PrepareSX3Computation(detector, strip)
 
     return function(hist, ev)
-      return GetEnSum(ch1, ch2)
+      local en_sum = GetEnSum(ev)
+      hist:Fill(en_sum)
     end
   end,
 
@@ -373,13 +370,21 @@ function SetupStandardMonitors()
     AddMonitor("SIDAR dE vs. E", {name = "sidar_dE_vs_E", title = "SIDAR dE vs. E", xmin = 0, xmax = 15, nbinsx = 1500, ymin = 0, ymax = 15, nbinsy = 1500}, function() end)
   end
 
---  for detid=1, 12 do
---    for strip=1, 4 do
+  for detid=1, 12 do
+    for strip=1, 4 do
+      local hname, htitle, detkey, halias
+
 --      local hname = string.format("SX3_U%d_resistive_%d", detid, strip)
---      local htitle = string.format("SuperX3 U%d front strip %d", detid, strip)
+--      local htitle = string.format("SuperX3 U%d left vs. right strip %d", detid, strip)
 --      local detkey = string.format("SuperX3 U%d", detid)
---      local halias = string.format("SX3 U%d en f%d", detid, strip)
+--      local halias = string.format("SX3 U%d resistive f%d", detid, strip)
 --      AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=10, nbinsx=1000, ymin=0, ymax=10, nbinsy=1000}, fillfns.FillSX3LeftVsRight(detkey, strip))
+
+      hname = string.format("SX3_U%d_en_%d", detid, strip)
+      htitle = string.format("SuperX3 U%d front strip %d", detid, strip)
+      detkey = string.format("SuperX3 U%d", detid)
+      halias = string.format("SX3 U%d en f%d", detid, strip)
+      AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=15, nbinsx=1500}, fillfns.FillResistiveFrontSum(detkey, strip))
 
 --      hname = string.format("SX3_U%d_position_%d", detid, strip)
 --      htitle = string.format("SuperX3 U%d position strip %d", detid, strip)
@@ -392,10 +397,16 @@ function SetupStandardMonitors()
 --      AddMonitor(halias, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=0, ymax=4096, nbinsy=2048}, fillfns.FillSX3RelativePosition(detkey, strip, true))
 
 --      hname = string.format("SX3_D%d_resistive_%d", detid, strip)
---      htitle = string.format("SuperX3 D%d front strip %d", detid, strip)
+--      htitle = string.format("SuperX3 D%d left vs. right strip %d", detid, strip)
 --      detkey = string.format("SuperX3 D%d", detid)
---      halias = string.format("SX3 D%d en f%d", detid, strip)
+--      halias = string.format("SX3 D%d resistive f%d", detid, strip)
 --      AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=4096, nbinsx=512, ymin=0, ymax=4096, nbinsy=512}, fillfns.FillSX3LeftVsRight(detkey, strip))
+
+      hname = string.format("SX3_D%d_en_%d", detid, strip)
+      htitle = string.format("SuperX3 D%d front strip %d", detid, strip)
+      detkey = string.format("SuperX3 D%d", detid)
+      halias = string.format("SX3 D%d en f%d", detid, strip)
+      AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=15, nbinsx=1500}, fillfns.FillResistiveFrontSum(detkey, strip))
 
 --      hname = string.format("SX3_D%d_position_%d", detid, strip)
 --      htitle = string.format("SuperX3 D%d position strip %d", detid, strip)
@@ -406,8 +417,28 @@ function SetupStandardMonitors()
 --      htitle = string.format("SuperX3 D%d position strip %d using backside energy", detid, strip)
 --      halias = string.format("SX3 D%d pos f%d en back", detid, strip)
 --      AddMonitor(halias, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=0, ymax=4096, nbinsy=2048}, fillfns.FillSX3RelativePosition(detkey, strip, true))
---    end
---  end
+    end
+  end
+
+  for strip=1,4 do
+    hname = string.format("Elastics_BOTTOMLEFT_en_%d", strip)
+    htitle = string.format("Elastics Bottom Left front strip %d", strip)
+    detkey = string.format("Elastics BOTTOMLEFT")
+    halias = string.format("Elastics Bottom Left en f%d", strip)
+    AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=15, nbinsx=1500}, fillfns.FillResistiveFrontSum(detkey, strip))
+
+    hname = string.format("Elastics_BOTTOMRIGHT_en_%d", strip)
+    htitle = string.format("Elastics Bottom Right front strip %d", strip)
+    detkey = string.format("Elastics BOTTOMRIGHT")
+    halias = string.format("Elastics Bottom Right en f%d", strip)
+    AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=15, nbinsx=1500}, fillfns.FillResistiveFrontSum(detkey, strip))
+
+    hname = string.format("Elastics_TOPRIGHT_en_%d", strip)
+    htitle = string.format("Elastics Top Right front strip %d", strip)
+    detkey = string.format("Elastics TOPRIGHT")
+    halias = string.format("Elastics Top Right en f%d", strip)
+    AddMonitor(halias, {name = hname, title = htitle, xmin=0, xmax=15, nbinsx=1500}, fillfns.FillResistiveFrontSum(detkey, strip))
+  end
 
 --  AddMonitor("MCP1 X", {name = "MCP1_X_MBD4", title = "MCP1 X Position MBD4", xmin = 0, xmax = 1024, nbinsx = 512}, fillfns.FillMCP("MCP 1 MBD4", "x"))
 --  AddMonitor("MCP1 Y", {name = "MCP1_Y_MBD4", title = "MCP1 Y Position MBD4", xmin = 0, xmax = 1024, nbinsx = 512}, fillfns.FillMCP("MCP 1 MBD4", "y"))
