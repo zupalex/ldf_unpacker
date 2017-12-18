@@ -4,7 +4,7 @@ mapping = require("ldf_unpacker/se84_mapping")
 calib = require("ldf_unpacker/se84_calibration")
 
 require("ldf_unpacker/ornldaq_signals")
-require("ldf_unpacker/ornldaq_monitors")
+fillfns = require("ldf_unpacker/ornldaq_monitors")
 
 local ldfEventCounter = 0
 
@@ -208,8 +208,6 @@ function DumpNextRecord(raw_dump)
 end
 
 function StartMonitoring(input, raw_dump, replay)
-  MakeSyncSafe()
-
   OpenInputFile(type(input) == "table" and input[1] or input)
 
   AddSignal("display", function(hname, opts)
@@ -255,8 +253,12 @@ function StartMonitoring(input, raw_dump, replay)
 
         if htype == "DATA" then
           for i, ev in ipairs(data) do
+            local cal_ev = {}
+
+            fillfns.CalibrateAndFillChVsValue({orruba_monitors.h_monitor.hist}, ev, cal_ev)
+
             for _, h in pairs(orruba_monitors) do
-              h.fillfn(h.hist, ev)
+              if h.fillfn then h.fillfn(h.hist, orruba_applycal and cal_ev or ev) end
             end
           end
         end
@@ -291,11 +293,7 @@ function StartMonitoring(input, raw_dump, replay)
     theApp:Update()
   end
 
-
-
   theApp:Update()
-
-  MakeSyncSafe(false)
 end
 
 ------------------------------- Simple function to read a file as it is written and send it over the network ---------------------------

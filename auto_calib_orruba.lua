@@ -535,7 +535,7 @@ end
 ------------------------------------------------------------------------------------------------------------
 
 local resistives = {
-  { type = "SuperX3", id = "U1" , side = "front" },
+--  { type = "SuperX3", id = "U1" , side = "front" },
 --  { type = "SuperX3", id = "U2" , side = "front" },
 --  { type = "SuperX3", id = "U3" , side = "front" },
 --  { type = "SuperX3", id = "U4" , side = "front" },
@@ -560,6 +560,10 @@ local resistives = {
 --  { type = "SuperX3", id = "D10", side = "front" },
 --  { type = "SuperX3", id = "D11", side = "front" },
 --  { type = "SuperX3", id = "D12", side = "front" },
+
+  { type = "Elastics", id = "BOTTOM_LEFT", side = "front" },
+  { type = "Elastics", id = "BOTTOM_RIGHT", side = "front" },
+  { type = "Elastics", id = "TOP_RIGHT", side = "front" },
 }
 
 function ProduceResistiveHistograms(input, graph_type)
