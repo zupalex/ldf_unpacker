@@ -55,7 +55,7 @@ local mapping = {
     U10 = { front = { ch=373 } , back = { ch=529 } },
     U11 = { front = { ch=381 } , back = { ch=541 } },
     U12 = { front = { ch=389 } , back = { ch=545 } },
-                                             
+
     D1 =  { front = { ch=401 } , back = { ch=549 } },
     D2 =  { front = { ch=409 } , back = { ch=553 } },
     D3 =  { front = { ch=417 } , back = { ch=557 } },
@@ -71,18 +71,18 @@ local mapping = {
   },
 
   X3 = {
-    E1  =  { front = { ch=604 } },
-    E2  =  { front = { ch=603 } },
-    E3  =  { front = { ch=602 } },
-    E4  =  { front = { ch=601 } },
-    E5  =  { front = { ch=606 } },
-    E6  =  { front = { ch=605 } },
-    E7  =  { front = { ch=612 } },
-    E8  =  { front = { ch=611 } },
-    E9  =  { front = { ch=610 } },
-    E10 =  { front = { ch=609 } },
-    E11 =  { front = { ch=614 } },
-    E12 =  { front = { ch=613 } },
+    dE1  =  { front = { ch=604 } },
+    dE2  =  { front = { ch=603 } },
+    dE3  =  { front = { ch=602 } },
+    dE4  =  { front = { ch=601 } },
+    dE5  =  { front = { ch=606 } },
+    dE6  =  { front = { ch=605 } },
+    dE7  =  { front = { ch=612 } },
+    dE8  =  { front = { ch=611 } },
+    dE9  =  { front = { ch=610 } },
+    dE10 =  { front = { ch=609 } },
+    dE11 =  { front = { ch=614 } },
+    dE12 =  { front = { ch=613 } },
   },
 
   Elastics = {
@@ -137,13 +137,13 @@ local function MakeChannelToDetector()
     for det, v in pairs(dets) do
       local detnum = det:match("%d+")
       local detpos = det:match("%a+")
-      
+
       if type(v) == "table" and v.front then
         for i= 1, detectors_properties[k].front.connectors or detectors_properties[k].front.strips do
           local fkey = k.." "..tostring(det).." "..(v.back == nil and "" or "f")..tostring(i)
           local chnum = v.front.ch+i-1
-          chan_to_det[chnum] = {stripid = fkey, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
-          det_to_chan[fkey] = {channel = chnum, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
+          chan_to_det[chnum] = {stripid = fkey, detnum = detnum, detpos = detpos, detside = "front", detid = det, dettype = k, stripnum = i}
+          det_to_chan[fkey] = {channel = chnum, detnum = detnum, detpos = detpos, detside = "front", detid = det, dettype = k, stripnum = i}
         end
       end
 
@@ -151,8 +151,8 @@ local function MakeChannelToDetector()
         for i= 1, detectors_properties[k].back.connectors or detectors_properties[k].back.strips do
           local bkey = k.." "..tostring(det).." b"..tostring(i)
           local chnum = v.back.ch+i-1
-          chan_to_det[chnum] = {stripid = fkey, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
-          det_to_chan[bkey] = {channel = chnum, detnum = detnum, detpos = detpos, detid = det, dettype = k, stripnum = i}
+          chan_to_det[chnum] = {stripid = fkey, detnum = detnum, detpos = detpos, detside = "back", detid = det, dettype = k, stripnum = i}
+          det_to_chan[bkey] = {channel = chnum, detnum = detnum, detpos = detpos, detside = "back", detid = det, dettype = k, stripnum = i}
         end
       end
 
@@ -213,8 +213,11 @@ local function ToDetKey(channel)
   return chan_to_det[channel].stripid
 end
 
-local function ToDetInfo(channel)
-  return chan_to_det[channel]
+local function ToDetInfo(detid)
+  if chan_to_det[channel] then return chan_to_det[channel]
+  elseif det_to_chan[detid] then return det_to_chan[detid]
+  else return nil
+  end
 end
 
 return {getchannel=ToAdcChannel, getchannels=ToAdcChannels, getdetkey=ToDetKey, getdetinfo=ToDetInfo, det_prop=detectors_properties}

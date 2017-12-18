@@ -85,10 +85,55 @@ end
 
 local function GetResistiveSum(channel, ev)
   if channel%2 == 0 then
-    return ev[channel]+ev[channel-1]
+    return ev[channel] and ev[channel-1] and ev[channel]+ev[channel-1]
   else
-    return ev[channel]+ev[channel+1]
+    return ev[channel] and ev[channel+1] and ev[channel]+ev[channel+1]
   end
+end
+
+local function FillTelescopedEandE(hists, ev, ndets, firststrips, nstrips, excludes)
+  local max_E_en, max_dE_en, max_E_strip, max_dE_strip
+
+  for det=1, ndets do
+    local first_ch = firststrips.E + (det-1)*nstrips.E
+
+    max_E_en = 0
+    max_E_strip = -1
+    for ch = first_ch, first_ch+nstrips.E-1 do
+      if not excludes[ch] and ev[ch] and ev[ch] > max_E_en then
+        local stripnum = (ch-101)%16
+        max_E_en = ev[ch]
+        max_E_strip = stripnum
+      end
+    end
+
+    if max_E_en > 0 then
+      if hists.evspos then hists.evspos:Fill(max_E_strip, max_E_en) end
+
+      max_dE_en = 0
+
+      if firststrips.dE then
+        first_ch = firststrips.dE + (det-1)*nstrips.dE
+        for ch = first_ch, first_ch+nstrips.dE-1 do
+          if not excludes[ch] and ev[ch] and ev[ch] > max_dE_en then
+            max_dE_en = ev[ch]
+          end
+        end
+      else
+        for _, ch in ipairs(nstrips.dE) do
+          if not excludes[ch] and ev[ch] and ev[ch] > max_dE_en then
+            max_dE_en = ev[ch]
+          end
+        end
+      end
+
+      if max_E_en > 0 and max_dE_en > 0 then
+        if hists.devse then hists.devse:Fill(max_E_en, max_dE_en) end
+      end
+    end
+  end
+
+  return max_E_en, max_dE_en, max_E_strip, max_dE_strip
 end
 
 have_barrel = false
@@ -117,8 +162,11 @@ local fillfns = {
           have_barrel = true
         end
 
-        if not have_elastics and orruba_applycal and k >= 633 and k <= 656 and (GetResistiveSum(k, ev) > 3) then
-          have_elastics = true
+        if not have_elastics and orruba_applycal and k >= 633 and k <= 656 then
+          local elastics_en = GetResistiveSum(k, ev)
+          if (elastics_en and elastics_en > 3) then
+            have_elastics = true
+          end
         end
       end
     end
@@ -197,12 +245,24 @@ local fillfns = {
   FillSX3EnergyVsPosition = function(detector, strip, useback)
     local ch_left, ch_right, GetEnSum, GetEnDiff = PrepareSX3Computation(detector, strip, useback)
 
+    local GetPos
+
+    if orruba_applycal and ch_cal[ch_left] and ch_cal[ch_right] and ch_cal[ch_left].gethitpos then
+      GetPos = function(ediff, esum)
+        return ch_cal[ch_left]:gethitpos()
+      end
+    else
+      GetPos = function(ediff, esum)
+        return ediff/esum
+      end
+    end
+
     return function(hist, ev)
       if ev[ch_left] and ev[ch_right] then
         local en_sum1, ensum2 = GetEnSum(ev)
         local en_diff = GetEnDiff(ev)
 
-        hist:Fill(en_diff/en_sum1, ensum2)
+        hist:Fill(GetPos(en_diff, en_sum1), ensum2)
       end
     end
   end,
@@ -299,62 +359,142 @@ local fillfns = {
     end
   end,
 
---  FillSIDAREnvsStrip = function(hist, ev)
---    if not orruba_applycal then return end
-
---    local exclude = { [102] = true, [176] = true, }
-
---    for k, v in pairs(ev) do
---      if k > 100 and k < 199 and not exclude[k] then
---        local en = (ch_cal[k] and ch_cal[k].calibrate and ch_cal[k]:calibrate(v, ev)) or nil
---        if en then
---          local stripnum = (k-101)%16
---          hist:Fill(stripnum, en)
---        end
---      end
---    end
---  end,
-
-  FillSIDARGraphs = function(hist, ev)
+  FillORRUBAdEvsE = function(hist, ev)
     if not orruba_applycal then return end
 
-    local exclude = {[2] = true, [3] = true, [9] = true, [44] = true, [48] = true, [76] = true, [102] = true, [176] = true, }
+    local excludes = {[9] = true, [44] = true, [48] = true, [76] = true, [102] = true, [176] = true, }
+    for i=1, 16 do
+      excludes[i] = true
+    end
 
-    for det=2, 16 do
-      local first_ch = 101 + (det-1)*16
+    local SIDAR, SX3Up, SX3Down = {}, {}, {}
 
-      local max_E_en = 0
-      local max_E_strip = -1
-      for ch = first_ch, first_ch+16 do
-        if not exclude[ch] and ev[ch] and ev[ch] > max_E_en then
-          local stripnum = (ch-101)%16
-          max_E_en = ev[ch]
-          max_E_strip = stripnum
-        end
-      end
+    SIDAR.max_E_en, SIDAR.max_dE_en, SIDAR.max_E_strip = FillTelescopedEandE({evspos=orruba_monitors.sidar_en_vs_strip.hist , devse=orruba_monitors.sidar_dE_vs_E.hist}, ev, 6, {dE=1, E=101}, {dE=16, E=16}, excludes)
 
-      if max_E_en > 0 then
-        orruba_monitors.sidar_en_vs_strip.hist:Fill(max_E_strip, max_E_en)
+    if sidar_protons_nopt and sidar_protons_nopt:IsInside(SIDAR.max_E_en, SIDAR.max_dE_en) == 1 then
+      validate_SIDAR_proton_gate = true
+      orruba_monitors.sidar_en_vs_strip_protons_nopt.hist:Fill(SIDAR.max_E_strip, SIDAR.max_E_en)
 
-        local max_dE_en = 0
-        for ch = first_ch-100, first_ch-100+16 do
-          if not exclude[ch] and ev[ch] and ev[ch] > max_dE_en then
-            max_dE_en = ev[ch]
-          end
-        end
-
-        if max_E_en > 0 and max_dE_en > 0 then
-          orruba_monitors.sidar_dE_vs_E.hist:Fill(max_E_en, max_dE_en)
-
-          if proton_cut and proton_cut:IsInside(max_E_en, max_dE_en) == 1 then
-
-            validate_SIDAR_proton_gate = true
-            orruba_monitors.sidar_en_vs_strip_protons.hist:Fill(max_E_strip, max_E_en)
-          end
-        end
+      if trig_coinc then
+        orruba_monitors.sidar_en_vs_strip_protons_coinc.hist:Fill(SIDAR.max_E_strip, SIDAR.max_E_en)
       end
     end
-  end,
+
+    if is_unreacted and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatepid_unreacted.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+    end
+
+    if is_85se and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatepid_85se.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+    end
+
+    if is_pidtest1 and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatepid_test1.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+      orruba_monitors.sidar_en_vs_strip_gatepid_test1.hist:Fill(SIDAR.max_E_strip, SIDAR.max_E_en)
+    end
+
+    if is_pidtest2 and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatepid_test2.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+      orruba_monitors.sidar_en_vs_strip_gatepid_test2.hist:Fill(SIDAR.max_E_strip, SIDAR.max_E_en)
+    end
+
+    if is_pidtest3 and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatepid_test3.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+      orruba_monitors.sidar_en_vs_strip_gatepid_test3.hist:Fill(SIDAR.max_E_strip, SIDAR.max_E_en)
+    end
+
+    if is_pidtest4 and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatepid_test4.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+      orruba_monitors.sidar_en_vs_strip_gatepid_test4.hist:Fill(SIDAR.max_E_strip, SIDAR.max_E_en)
+    end
+
+    if is_pidtest5 and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatepid_test5.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+      orruba_monitors.sidar_en_vs_strip_gatepid_test5.hist:Fill(SIDAR.max_E_strip, SIDAR.max_E_en)
+    end
+
+    if is_crdcunreacted and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatecrdc_unreacted.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+    end
+
+    if is_crdcleftunreac and SIDAR.max_E_en > 0 and SIDAR.max_dE_en > 0 then
+      orruba_monitors.sidar_dE_vs_E_gatecrdc_leftunreacted.hist:Fill(SIDAR.max_E_en, SIDAR.max_dE_en)
+    end
+
+    SX3Up.max_E_en, SX3Up.max_dE_en = FillTelescopedEandE({devse=orruba_monitors.sx3u_dE_vs_E.hist}, ev, 12, {dE=201, E=301}, {dE=8, E=8}, excludes)
+
+    if sx3_up_protons_nopt and sx3_up_protons_nopt:IsInside(SX3Up.max_E_en, SX3Up.max_dE_en) == 1 then
+--      print("validate_SX3UP_protons_nopt")
+      validate_SX3UP_protons_nopt = true
+    end
+
+    if sx3_up_protons_pt and sx3_up_protons_pt:IsInside(SX3Up.max_E_en, SX3Up.max_dE_en) == 1 then
+--      print("validate_SX3UP_protons_pt")
+      validate_SX3UP_protons_pt = true
+    end
+
+    if sx3_up_protons_nopt and sx3_up_protons_pt and sx3_up_protons_nopt:IsInside(SX3Up.max_E_en, SX3Up.max_dE_en)+sx3_up_protons_pt:IsInside(SX3Up.max_E_en, SX3Up.max_dE_en)>=1 then
+--      print("validate_SX3UP_protons_any")
+      validate_SX3UP_protons_any = true
+    end
+
+    if is_pidtest1 and SX3Up.max_E_en > 0 and SX3Up.max_dE_en > 0 then
+      orruba_monitors.sx3u_dE_vs_E_gatepid_test1.hist:Fill(SX3Up.max_E_en, SX3Up.max_dE_en)
+    end
+
+    if is_pidtest2 and SX3Up.max_E_en > 0 and SX3Up.max_dE_en > 0 then
+      orruba_monitors.sx3u_dE_vs_E_gatepid_test2.hist:Fill(SX3Up.max_E_en, SX3Up.max_dE_en)
+    end
+
+    if is_pidtest3 and SX3Up.max_E_en > 0 and SX3Up.max_dE_en > 0 then
+      orruba_monitors.sx3u_dE_vs_E_gatepid_test3.hist:Fill(SX3Up.max_E_en, SX3Up.max_dE_en)
+    end
+
+    if is_pidtest4 and SX3Up.max_E_en > 0 and SX3Up.max_dE_en > 0 then
+      orruba_monitors.sx3u_dE_vs_E_gatepid_test4.hist:Fill(SX3Up.max_E_en, SX3Up.max_dE_en)
+    end
+
+    if is_pidtest5 and SX3Up.max_E_en > 0 and SX3Up.max_dE_en > 0 then
+      orruba_monitors.sx3u_dE_vs_E_gatepid_test5.hist:Fill(SX3Up.max_E_en, SX3Up.max_dE_en)
+    end
+
+    SX3Down.max_E_en, SX3Down.max_dE_en = FillTelescopedEandE({devse=orruba_monitors.sx3d_dE_vs_E.hist}, ev, 12, {E=401}, {dE={604, 603, 602, 601, 606, 605, 612, 611, 610, 609, 614, 613}, E=8}, excludes)
+
+    if sx3_down_protons_nopt and sx3_down_protons_nopt:IsInside(SX3Down.max_E_en, SX3Down.max_dE_en) == 1 then
+--      print("validate_SX3DOWN_protons_nopt")
+      validate_SX3DOWN_protons_nopt = true
+    end
+
+    if sx3_down_protons_pt and sx3_down_protons_pt:IsInside(SX3Down.max_E_en, SX3Down.max_dE_en) == 1 then
+--      print("validate_SX3DOWN_protons_pt")
+      validate_SX3DOWN_protons_pt = true
+    end
+
+    if sx3_down_protons_nopt and sx3_down_protons_pt and sx3_down_protons_nopt:IsInside(SX3Down.max_E_en, SX3Down.max_dE_en)+sx3_down_protons_pt:IsInside(SX3Down.max_E_en, SX3Down.max_dE_en)>=1 then
+--      print("validate_SX3DOWN_protons_any")
+      validate_SX3DOWN_protons_any = true
+    end
+
+    if is_pidtest1 and SX3Down.max_E_en > 0 and SX3Down.max_dE_en > 0 then
+      orruba_monitors.sx3d_dE_vs_E_gatepid_test1.hist:Fill(SX3Down.max_E_en, SX3Down.max_dE_en)
+    end
+
+    if is_pidtest2 and SX3Down.max_E_en > 0 and SX3Down.max_dE_en > 0 then
+      orruba_monitors.sx3d_dE_vs_E_gatepid_test2.hist:Fill(SX3Down.max_E_en, SX3Down.max_dE_en)
+    end
+
+    if is_pidtest3 and SX3Down.max_E_en > 0 and SX3Down.max_dE_en > 0 then
+      orruba_monitors.sx3d_dE_vs_E_gatepid_test3.hist:Fill(SX3Down.max_E_en, SX3Down.max_dE_en)
+    end
+
+    if is_pidtest4 and SX3Down.max_E_en > 0 and SX3Down.max_dE_en > 0 then
+      orruba_monitors.sx3d_dE_vs_E_gatepid_test4.hist:Fill(SX3Down.max_E_en, SX3Down.max_dE_en)
+    end
+
+    if is_pidtest5 and SX3Down.max_E_en > 0 and SX3Down.max_dE_en > 0 then
+      orruba_monitors.sx3d_dE_vs_E_gatepid_test5.hist:Fill(SX3Down.max_E_en, SX3Down.max_dE_en)
+    end
+  end
 }
 
 ----------------------- Monitors ---------------------------
@@ -364,7 +504,11 @@ function SetupStandardMonitors()
     AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 4096, nbinsy = 4096}, fillfns.FillChVsValue)
   else
     local cfile = TFile("/user/e16025/luaXroot/user/pid_cuts.root", "read")
-    proton_cut = cfile:GetObject("TCutG", "maybeprotons")
+    sidar_protons_nopt = cfile:GetObject("TCutG", "sidar_protons_nopt")
+    sx3_up_protons_nopt = cfile:GetObject("TCutG", "sx3_up_protons_nopt")
+    sx3_up_protons_pt = cfile:GetObject("TCutG", "sx3_up_protons_pt")
+    sx3_down_protons_nopt = cfile:GetObject("TCutG", "sx3_down_protons_nopt")
+    sx3_down_protons_pt = cfile:GetObject("TCutG", "sx3_down_protons_pt")
     cfile:Close()
 
     AddMonitor("En vs. Ch", {name = "h_monitor", title = "Monitor", xmin = 0, xmax = 899, nbinsx = 899, ymin = 0, ymax = 10, nbinsy = 1000}, fillfns.FillChVsValue)

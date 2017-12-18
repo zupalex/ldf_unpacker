@@ -80,8 +80,8 @@ local function ReadSX3FrontsideParams(cur_det, det_cal, ch_cal)
 
         local nearKey, farKey = cur_det.." f"..tostring(order[order_index]), cur_det.." f"..tostring(order[order_index+1])
 
-        det_cal[nearKey] = { offset=offX, gain_match=gain_match, width=width, pos_offset=pos_offset, slope=slope, type="near"}
-        det_cal[farKey] = { offset=offY, gain_match=1.0, width=width, pos_offset=pos_offset, slope=slope, type="far"}
+        det_cal[nearKey] = { offset=offX, gain_match=gain_match, width=width>0 and width or 1, pos_offset=pos_offset> -1 and pos_offset or 0, slope=slope, type="near"}
+        det_cal[farKey] = { offset=offY, gain_match=1.0, width=width>0 and width or 1, pos_offset=pos_offset> -1 and pos_offset or 0, slope=slope, type="far"}
 
         det_cal[nearKey].friend = det_cal[farKey]
         det_cal[farKey].friend = det_cal[nearKey]
