@@ -101,7 +101,19 @@ local UnpackRecord = {
     return bindata.type, nil, hid, recn
   end,
 
-  ["DATA"] = function(length)
+  ["SCAL"] = function(length, raw_dump)
+    if raw_dump then
+--    if true then
+      print("----- SCALER -----")
+      for i=1, length do
+        buffer, bindata.cur_idx = DecodeBytes(bindata.record, "I4", bindata.cur_idx)
+        local w1, w2 = buffer&0xffff, (buffer>>16)&0xffff
+        print(w1, w1)
+      end
+    end
+  end,
+
+  ["DATA"] = function(length, raw_dump)
     local data = {}
     local new_ev = {}
     local mult = 0
@@ -158,7 +170,7 @@ local function ReadNextRecordDisk(raw_dump, skip_readrecord)
 
   local unpackfn = UnpackRecord[bindata.type] or function() return bindata.type end
 
-  return unpackfn()
+  return unpackfn(bindata.nWords, raw_dump)
 end
 
 local function ReadNextRecordTCP(bufsize, raw_dump)
@@ -166,7 +178,7 @@ local function ReadNextRecordTCP(bufsize, raw_dump)
     return nil
   end
 
-  return UnpackRecord["DATA"](bufsize/4)
+  return UnpackRecord["DATA"](bufsize/4, raw_dump)
 end
 
 ReadNextRecord = ReadNextRecordDisk
@@ -227,11 +239,16 @@ function StartMonitoring(input, raw_dump, replay)
 --    else h.hist:Draw("colz") end
 --  end
 
-  orruba_monitors.h_monitor.hist:Draw("colz")
+  if orruba_monitors.h_monitor then orruba_monitors.h_monitor.hist:Draw("colz") end
 
   local totRecords = 0
 
   if bindata.lastReadRecord == nil then bindata.lastReadRecord = 0 end
+
+  local monitors_table = orruba_monitors.h_monitor and {orruba_monitors.h_monitor} or {}
+
+  print("Replay of ", input, " started at")
+  os.execute("date")
 
   while CheckSignals() do
     bindata.currPos = bindata.file:seek("cur")
@@ -247,6 +264,7 @@ function StartMonitoring(input, raw_dump, replay)
 
     if nRecordsToRead > 0 then
       for i=1, nRecordsToRead do
+
         local htype, data = ReadNextRecord(raw_dump)
 --        if htype == "DIR " then print("Read record #"..tostring(bindata.lastReadRecord+i), "type =")
 --        elseif htype == "DATA" then print("Read record #"..tostring(bindata.lastReadRecord+i), "type =", header_types[htype], "events =", #data) end
@@ -255,7 +273,9 @@ function StartMonitoring(input, raw_dump, replay)
           for i, ev in ipairs(data) do
             local cal_ev = {}
 
-            fillfns.CalibrateAndFillChVsValue({orruba_monitors.h_monitor.hist}, ev, cal_ev)
+            if orruba_applycal then
+              fillfns.CalibrateAndFillChVsValue(monitors_table, ev, cal_ev)
+            end
 
             for _, h in pairs(orruba_monitors) do
               if h.fillfn then h.fillfn(h.hist, orruba_applycal and cal_ev or ev) end
@@ -288,6 +308,9 @@ function StartMonitoring(input, raw_dump, replay)
 
     sleep(2)
   end
+
+  print("Replay finished at")
+  os.execute("date")
 
   for k, v in pairs(orruba_monitors) do
     theApp:Update()
