@@ -27,7 +27,7 @@ end
 local fillfns = {
   FillChVsValue = function(hist, ev)
     for k, v in pairs(ev) do
-      hist:Fill(k, en)
+      hist:Fill(k, v)
     end
   end,
 

@@ -1,8 +1,5 @@
 require("binaryreader")
 
-mapping = require("ldf_unpacker/se84_mapping")
-calib = require("ldf_unpacker/se84_calibration")
-
 require("ldf_unpacker/ornldaq_signals")
 fillfns = require("ldf_unpacker/ornldaq_monitors")
 
@@ -677,3 +674,5 @@ function StartMonitoringNetwork(address)
 
   MakeSyncSafe(false)
 end
+
+return {bindata=bindata, OpenInputFile=OpenInputFile, ReadNextRecord=ReadNextRecord}
